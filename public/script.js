@@ -8,6 +8,8 @@ const firebaseConfig = {
   apiKey: "AIzaSyBBQk1wz6_ItAmKh1ey44lmrH9fB_I_2as",
   authDomain: "storage-cd101.firebaseapp.com",
   projectId: "storage-cd101",
+  // Try the legacy bucket name first; if your project uses the new
+  // ".firebasestorage.app" suffix, change this line accordingly.
   storageBucket: "storage-cd101.appspot.com",
   messagingSenderId: "92051542299",
   appId: "1:92051542299:web:4fb73771df5a5164e2c3be",
@@ -16,6 +18,17 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const fbStorage = firebase.storage();
 const fbDb = firebase.firestore();
+const fbAuth = firebase.auth();
+
+// Sign in anonymously so default Firebase Storage / Firestore rules
+// (which require `request.auth != null`) allow reads & writes.
+fbAuth.signInAnonymously().catch((err) => {
+  console.error("Anonymous sign-in failed:", err);
+  console.warn(
+    "Enable Anonymous auth in Firebase Console → Authentication → Sign-in method, " +
+    "or your Storage/Firestore rules must allow public access."
+  );
+});
 
 /* ---------- Song catalog ---------- */
 const songs = [
@@ -554,20 +567,48 @@ function openUploadModal() {
 
 async function uploadSong({ audioFile, coverFile, title, artist }) {
   uploadOverlay.classList.remove("hidden");
+  uploadStatus.textContent = "Preparing...";
+  console.log("[upload] starting", { name: audioFile.name, size: audioFile.size });
+
+  // Watchdog: if no progress event in 15s, surface a helpful error.
+  let lastTick = Date.now();
+  const watchdog = setInterval(() => {
+    if (Date.now() - lastTick > 15000) {
+      clearInterval(watchdog);
+      uploadOverlay.classList.add("hidden");
+      alert(
+        "Upload stalled. Likely causes:\n" +
+        "1) Firebase Storage rules block writes (set: allow read, write: if true; for testing)\n" +
+        "2) Wrong storageBucket name (try 'storage-cd101.firebasestorage.app')\n" +
+        "3) Storage not enabled in Firebase console\n" +
+        "4) Anonymous auth disabled\n\nCheck browser console for the real error."
+      );
+    }
+  }, 2000);
+
   try {
     const stamp = Date.now();
     uploadStatus.textContent = "Uploading audio... 0%";
     const audioRef = fbStorage.ref(`songs/${stamp}_${audioFile.name}`);
     const audioTask = audioRef.put(audioFile);
     await new Promise((resolve, reject) => {
-      audioTask.on("state_changed",
+      audioTask.on(
+        "state_changed",
         (snap) => {
+          lastTick = Date.now();
           const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
           uploadStatus.textContent = `Uploading audio... ${pct}%`;
+          console.log("[upload] progress", pct + "%");
         },
-        reject, resolve);
+        (err) => {
+          console.error("[upload] audio error", err);
+          reject(err);
+        },
+        resolve
+      );
     });
     const audioURL = await audioRef.getDownloadURL();
+    console.log("[upload] audio URL", audioURL);
 
     let coverURL = "";
     if (coverFile) {
@@ -586,10 +627,15 @@ async function uploadSong({ audioFile, coverFile, title, artist }) {
     songs.push({ title, artist, src: audioURL, cover: coverURL || FALLBACK_COVER, uploaded: true });
     queue = songs.map((_, i) => i);
     render();
+    uploadStatus.textContent = "Done!";
   } catch (err) {
-    console.error(err);
-    alert("Upload failed: " + (err.message || err));
+    console.error("[upload] failed", err);
+    alert(
+      "Upload failed: " + (err.code || "") + " " + (err.message || err) +
+      "\n\nOpen DevTools console for full details."
+    );
   } finally {
+    clearInterval(watchdog);
     uploadOverlay.classList.add("hidden");
   }
 }
