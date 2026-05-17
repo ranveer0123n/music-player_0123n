@@ -44,6 +44,7 @@
         <button class="nav-item" data-view="recent">🕓 <span>Recently Played</span></button>
         <ul id="playlist-list" class="playlist-list"></ul>
       </div>
+      <button id="upload-btn" class="btn-primary" style="margin:12px">⬆ Upload Song</button>
       <div class="sidebar-footer">
         <span id="user-badge"></span>
         <button id="logout-btn" class="btn-ghost">Logout</button>
@@ -89,6 +90,18 @@
     </footer>
   </div>
 
+  <!-- Upload progress overlay -->
+  <div id="upload-overlay" class="upload-overlay hidden">
+    <div class="upload-box">
+      <div class="spinner"></div>
+      <div id="upload-status">Uploading...</div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="/script.js"></script>
 </body>
 </html>

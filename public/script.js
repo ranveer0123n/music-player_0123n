@@ -3,10 +3,21 @@
    Storage keys are namespaced per user.
    ========================================================= */
 
-/* ---------- Song catalog ----------
-   Replace src/cover with your own files in /songs and /covers.
-   Sample audio uses SoundHelix free demo tracks so the app
-   works out of the box without bundling MP3s. */
+/* ---------- Firebase ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyBBQk1wz6_ItAmKh1ey44lmrH9fB_I_2as",
+  authDomain: "storage-cd101.firebaseapp.com",
+  projectId: "storage-cd101",
+  storageBucket: "storage-cd101.appspot.com",
+  messagingSenderId: "92051542299",
+  appId: "1:92051542299:web:4fb73771df5a5164e2c3be",
+  measurementId: "G-3N00MV0B68"
+};
+firebase.initializeApp(firebaseConfig);
+const fbStorage = firebase.storage();
+const fbDb = firebase.firestore();
+
+/* ---------- Song catalog ---------- */
 const songs = [
   { title: "Midnight Drive",   artist: "Imagine Dragons",   src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", cover: "https://picsum.photos/seed/believer/300/300" },
   { title: "Shape of You",     artist: "Ed Sheeran",        src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", cover: "https://picsum.photos/seed/shape/300/300" },
@@ -19,6 +30,7 @@ const songs = [
   { title: "Believer",         artist: "Imagine Dragons",   src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3", cover: "https://picsum.photos/seed/believer2/300/300" },
   { title: "Lost Sky",         artist: "NCS Originals",     src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3", cover: "https://picsum.photos/seed/lostsky/300/300" },
 ];
+const builtInCount = songs.length;
 
 /* ---------- State ---------- */
 const audio = new Audio();
@@ -465,5 +477,119 @@ function showModal(title, placeholder, onConfirm, choices = null) {
     back.querySelectorAll("[data-i]").forEach((b) => {
       b.addEventListener("click", () => { choices[+b.dataset.i].onClick(); close(); });
     });
+  }
+}
+
+/* ============ FIREBASE SONGS ============ */
+const FALLBACK_COVER = "https://picsum.photos/seed/upload/300/300";
+
+async function fetchFirestoreSongs() {
+  try {
+    const snap = await fbDb.collection("songs").orderBy("createdAt", "desc").get();
+    const fetched = [];
+    snap.forEach((doc) => {
+      const d = doc.data();
+      if (!d.audioURL) return;
+      fetched.push({
+        id: doc.id,
+        title: d.title || "Untitled",
+        artist: d.artist || "Unknown",
+        src: d.audioURL,
+        cover: d.coverURL || FALLBACK_COVER,
+        uploaded: true,
+      });
+    });
+    // Append to songs (keep built-in indices stable)
+    songs.push(...fetched);
+    queue = songs.map((_, i) => i);
+    if (currentUser) render();
+  } catch (err) {
+    console.error("Failed to fetch songs:", err);
+  }
+}
+fetchFirestoreSongs();
+
+/* ============ UPLOAD ============ */
+const uploadOverlay = document.getElementById("upload-overlay");
+const uploadStatus = document.getElementById("upload-status");
+
+document.getElementById("upload-btn").addEventListener("click", openUploadModal);
+
+function openUploadModal() {
+  const back = document.createElement("div");
+  back.className = "modal-backdrop";
+  back.innerHTML = `
+    <div class="modal">
+      <h3>Upload Song</h3>
+      <label class="upload-label">Audio file *</label>
+      <input id="up-audio" type="file" accept="audio/*" required />
+      <label class="upload-label">Title *</label>
+      <input id="up-title" type="text" placeholder="Song title" />
+      <label class="upload-label">Artist *</label>
+      <input id="up-artist" type="text" placeholder="Artist name" />
+      <label class="upload-label">Cover image (optional)</label>
+      <input id="up-cover" type="file" accept="image/*" />
+      <div class="modal-actions">
+        <button class="btn-ghost" id="up-cancel">Cancel</button>
+        <button class="btn-primary" id="up-submit">Upload</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  back.querySelector("#up-cancel").addEventListener("click", close);
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  back.querySelector("#up-submit").addEventListener("click", async () => {
+    const audioFile = back.querySelector("#up-audio").files[0];
+    const coverFile = back.querySelector("#up-cover").files[0];
+    const title = back.querySelector("#up-title").value.trim();
+    const artist = back.querySelector("#up-artist").value.trim();
+    if (!audioFile || !title || !artist) {
+      alert("Please provide an audio file, title, and artist.");
+      return;
+    }
+    close();
+    await uploadSong({ audioFile, coverFile, title, artist });
+  });
+}
+
+async function uploadSong({ audioFile, coverFile, title, artist }) {
+  uploadOverlay.classList.remove("hidden");
+  try {
+    const stamp = Date.now();
+    uploadStatus.textContent = "Uploading audio... 0%";
+    const audioRef = fbStorage.ref(`songs/${stamp}_${audioFile.name}`);
+    const audioTask = audioRef.put(audioFile);
+    await new Promise((resolve, reject) => {
+      audioTask.on("state_changed",
+        (snap) => {
+          const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+          uploadStatus.textContent = `Uploading audio... ${pct}%`;
+        },
+        reject, resolve);
+    });
+    const audioURL = await audioRef.getDownloadURL();
+
+    let coverURL = "";
+    if (coverFile) {
+      uploadStatus.textContent = "Uploading cover...";
+      const coverRef = fbStorage.ref(`covers/${stamp}_${coverFile.name}`);
+      await coverRef.put(coverFile);
+      coverURL = await coverRef.getDownloadURL();
+    }
+
+    uploadStatus.textContent = "Saving...";
+    await fbDb.collection("songs").add({
+      title, artist, audioURL, coverURL,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    songs.push({ title, artist, src: audioURL, cover: coverURL || FALLBACK_COVER, uploaded: true });
+    queue = songs.map((_, i) => i);
+    render();
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed: " + (err.message || err));
+  } finally {
+    uploadOverlay.classList.add("hidden");
   }
 }
