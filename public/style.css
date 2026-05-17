@@ -209,3 +209,28 @@ input[type="range"]::-moz-range-thumb{width:12px;height:12px;border:0;border-rad
   .player{grid-template-columns:1fr;grid-template-rows:auto auto;padding:8px;gap:6px}
   .player-volume{display:none}
 }
+
+/* ===== Upload ===== */
+.upload-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: grid; place-items: center; z-index: 9999;
+}
+.upload-overlay.hidden { display: none; }
+.upload-box {
+  background: #1e1e1e; padding: 28px 36px; border-radius: 12px;
+  text-align: center; color: #fff; min-width: 240px;
+}
+.spinner {
+  width: 42px; height: 42px; margin: 0 auto 14px;
+  border: 4px solid #333; border-top-color: #1db954;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.upload-label {
+  display: block; margin: 10px 0 4px; font-size: 13px; color: #b3b3b3;
+}
+.modal input[type="file"], .modal input[type="text"] {
+  width: 100%; padding: 8px 10px; margin-bottom: 4px;
+  background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 6px;
+  color: #fff; font-size: 14px;
+}
