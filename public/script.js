@@ -8,6 +8,8 @@ const firebaseConfig = {
   apiKey: "AIzaSyBBQk1wz6_ItAmKh1ey44lmrH9fB_I_2as",
   authDomain: "storage-cd101.firebaseapp.com",
   projectId: "storage-cd101",
+  // Try the legacy bucket name first; if your project uses the new
+  // ".firebasestorage.app" suffix, change this line accordingly.
   storageBucket: "storage-cd101.appspot.com",
   messagingSenderId: "92051542299",
   appId: "1:92051542299:web:4fb73771df5a5164e2c3be",
@@ -16,6 +18,17 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const fbStorage = firebase.storage();
 const fbDb = firebase.firestore();
+const fbAuth = firebase.auth();
+
+// Sign in anonymously so default Firebase Storage / Firestore rules
+// (which require `request.auth != null`) allow reads & writes.
+fbAuth.signInAnonymously().catch((err) => {
+  console.error("Anonymous sign-in failed:", err);
+  console.warn(
+    "Enable Anonymous auth in Firebase Console → Authentication → Sign-in method, " +
+    "or your Storage/Firestore rules must allow public access."
+  );
+});
 
 /* ---------- Song catalog ---------- */
 const songs = [
