@@ -3,10 +3,21 @@
    Storage keys are namespaced per user.
    ========================================================= */
 
-/* ---------- Song catalog ----------
-   Replace src/cover with your own files in /songs and /covers.
-   Sample audio uses SoundHelix free demo tracks so the app
-   works out of the box without bundling MP3s. */
+/* ---------- Firebase ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyBBQk1wz6_ItAmKh1ey44lmrH9fB_I_2as",
+  authDomain: "storage-cd101.firebaseapp.com",
+  projectId: "storage-cd101",
+  storageBucket: "storage-cd101.appspot.com",
+  messagingSenderId: "92051542299",
+  appId: "1:92051542299:web:4fb73771df5a5164e2c3be",
+  measurementId: "G-3N00MV0B68"
+};
+firebase.initializeApp(firebaseConfig);
+const fbStorage = firebase.storage();
+const fbDb = firebase.firestore();
+
+/* ---------- Song catalog ---------- */
 const songs = [
   { title: "Midnight Drive",   artist: "Imagine Dragons",   src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", cover: "https://picsum.photos/seed/believer/300/300" },
   { title: "Shape of You",     artist: "Ed Sheeran",        src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", cover: "https://picsum.photos/seed/shape/300/300" },
@@ -19,6 +30,7 @@ const songs = [
   { title: "Believer",         artist: "Imagine Dragons",   src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3", cover: "https://picsum.photos/seed/believer2/300/300" },
   { title: "Lost Sky",         artist: "NCS Originals",     src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3", cover: "https://picsum.photos/seed/lostsky/300/300" },
 ];
+const builtInCount = songs.length;
 
 /* ---------- State ---------- */
 const audio = new Audio();
